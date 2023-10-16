@@ -101,24 +101,27 @@ def enrichment_plot(my_deepof_project, supervised_annotation):
     return plt
 
 # =============================================================================
-# Generate a CSV file to store your data
+# Defining functions for future analysis and plotting
 # =============================================================================
 
-def csv_generator(supervised_annotation, hue, values_column, bin_num, bin_size, duration):
-
+def csv_generator(supervised_annotation, conditions_column, hue, values_column, bin_num, bin_size, duration):
     '''
     Parameters
     ----------
+    conditions_column: str (title of the conditions column of the conditions.csv)
+    hue: str (name of the specific hue contained in the conditions_column)
     values_column: str ('lookaround', 'huddle', 'climbing', or 'sniffing')
-    hue: str (str contained in the name of the file. E.g. S1, Hab, etc.)
     bin_num: int (number of bin, considering that starts with 0)
     bin_size: int (duration of the bins, in seconds)
     duration: int (total expected duration of the videos, in seconds)
     '''
     
-    copy_supervised_annotation = copy.deepcopy(supervised_annotation)
-    dict_of_dataframes = {key: value for key, value in copy_supervised_annotation.items() if hue in str(key)}
+    copy_supervised_annotation = copy.deepcopy(supervised_annotation) 
     
+    conditions = pd.read_csv(directory_output + "conditions.csv")
+    conditions_list = conditions[conditions[conditions_column] == hue]['experiment_id'].to_list()
+    dict_of_dataframes = {key: value for key, value in copy_supervised_annotation.items() if key in conditions_list}   
+        
     num_of_bins = {}
     factor = int(duration/bin_size)
             
@@ -158,73 +161,78 @@ def csv_generator(supervised_annotation, hue, values_column, bin_num, bin_size, 
 # Plotting a timelapse plot of a specific trait
 # =============================================================================
 
-def timeseries_supervised(supervised_annotation, protocol='S1', selected_column_name='sniffing', ax=None, bin_size=10): # in seconds
+def timeseries_supervised(ax=None, conditions_column='protocol', hues=['s1', 's2'], color='blue', behavior='huddle', length=360, bin_size=10):
+    '''
+    Parameters
+    ----------
+    conditions_column: str (title of the conditions column of the conditions.csv)
+    hue: list of str (name of the specific hues contained in the conditions_column)
+    behavior: str (huddle, lookaround, climbing, speed, or sniffing)
+    color: str color of contrast of the ON period: blue, red, etc.)
+    length: int (expected size of the video in seconds)
+    bin_size: int (bin size in seconds)
+    '''
+    
+    copy_supervised_annotation = copy.deepcopy(supervised_annotation) 
+    
+    conditions = pd.read_csv(directory_output + "conditions.csv")
+    
+    list_of_df = []
+    for hue in hues:
+        conditions_list = conditions[conditions[conditions_column] == hue]['experiment_id'].to_list()  
+        dict_of_dataframes = {key: value for key, value in copy_supervised_annotation.items() if key in conditions_list}   
+        
+        num_of_bins = {}
+        for key, value in dict_of_dataframes.items():
+            factor = int(length/bin_size)
+            
+            value.reset_index(inplace=True)
+            value.drop('index', axis=1, inplace=True)
+            value.reset_index(inplace=True)
+                    
+            bin_length = int(len(value) // factor)
+            cutoffs = [i * bin_length for i in range(1, factor)]
+            
+            # Determine the minimum and maximum of the 'index' column
+            min_value = value['index'].min()
+            max_value = value['index'].max() + 1
+    
+            # Add the leftmost and rightmost edges for the first and last bins
+            cutoffs = [min_value] + cutoffs + [max_value]
+            
+            value['bin'] = pd.cut(value['index'], bins=cutoffs, labels=False, right=False, include_lowest=True)
+            
+            num_of_bins[key] = value
+           
+        df = pd.concat(num_of_bins.values(), keys=num_of_bins.keys()).reset_index()
+    
+        mean_values = df.groupby(['bin', 'level_0'])[behavior].mean()
+        mean_values = mean_values.reset_index()
+        mean_values['bin'] = mean_values['bin'] + 1
+        mean_values[conditions_column] = hue
+        
+        # The numbers of the X axis will be expressed in minutes
+        mean_values['bin'] = mean_values.bin / 6
+        
+        # The numbers of the Y axis will be expressed as %
+        mean_values[behavior] = mean_values[behavior] * 100
+        
+        list_of_df.append(mean_values)
+        
+    # Concatenate the DataFrames vertically (along the rows)
+    df_to_plot = pd.concat(list_of_df)
+    df_to_plot = df_to_plot.reset_index(drop=True)
+    
     
     if ax is None:
         fig, ax = plt.subplots(1, 1)
-        
-    dict_of_dataframes = copy.deepcopy(supervised_annotation)
-    
-    num_of_bins = {}
-    for key, value in dict_of_dataframes.items():
-        if str(key).split(' ')[-2].split('_')[0] == 'Hab':
-            factor = int(1200/bin_size)
-        if str(key).split(' ')[-2].split('_')[0] == 'S1':
-            factor = int(360/bin_size)
-        if str(key).split(' ')[-2].split('_')[0] == 'S2':
-            factor = int(360/bin_size)
-        
-        value.reset_index(inplace=True)
-        value.drop('index', axis=1, inplace=True)
-        value.reset_index(inplace=True)
-                
-        bin_length = int(len(value) // factor)
-        cutoffs = [i * bin_length for i in range(1, factor)]
-        
-        # Determine the minimum and maximum of the 'index' column
-        min_value = value['index'].min()
-        max_value = value['index'].max() + 1
-
-        # Add the leftmost and rightmost edges for the first and last bins
-        cutoffs = [min_value] + cutoffs + [max_value]
-        
-        value['bin'] = pd.cut(value['index'], bins=cutoffs, labels=False, right=False, include_lowest=True)
-        
-        num_of_bins[key] = value
-           
-    df = pd.concat(num_of_bins.values(), keys=num_of_bins.keys()).reset_index()
-    
-    mean_values = df.groupby(['bin', 'level_0'])[selected_column_name].mean()
-    mean_values = mean_values.reset_index()
-    mean_values['bin'] = mean_values['bin'] + 1
-    mean_values['group'] = mean_values.level_0.str.split(' ').str[-1].str.split('_').str[0]
-    mean_values['protocol'] = mean_values.level_0.str.split(' ').str[-2].str.split('_').str[0]
-    
-    mean_values = mean_values[mean_values['protocol'] == protocol]
-    
-    # Define a mapping of strings to replace and their corresponding replacements
-    replace_dict = {
-        'ab': 'PP',
-        'cd': 'UP',
-        'ef': 'PU'
-    }
-    
-    # Replace the strings in the 'column_name' column using the replace method
-    # mean_values['group'] = mean_values['group'].replace(replace_dict)
-    
-    # The numbers of the X axis will be expressed in minutes
-    mean_values['bin'] = mean_values.bin / 6
-    # The numbers of the Y axis will be expressed as %
-    mean_values[selected_column_name] = mean_values[selected_column_name] * 100
     
     sns.set_theme(style="whitegrid")
-    sns.lineplot(x='bin', y=selected_column_name, data=mean_values, ax=ax,
-                  # hue='group',
-                 )
+    sns.lineplot(x='bin', y=behavior, data=df_to_plot, ax=ax, hue=conditions_column)
         
     plt.ylim(0,100)
     ax.set(xlabel='Time [min]')
-    ax.set(ylabel=selected_column_name.capitalize() + ' (% of time)')
+    ax.set(ylabel=behavior.capitalize() + ' (% of time)')
     handles, labels = ax.get_legend_handles_labels()
     
     off_list = []
@@ -239,31 +247,17 @@ def timeseries_supervised(supervised_annotation, protocol='S1', selected_column_
     off_patch = mpatches.Patch(color='yellow', label='off period', alpha=0.1)
     handles.append(off_patch)
     
-    if protocol == 'S2':
-        probetest_list = []
-        probetest_coords = plt.Rectangle((3, 0), 1, 100) # 5 min probetest
-        probetest_list.append(probetest_coords)
-        probetest_coords_2 = plt.Rectangle((5, 0), 1, 100) # 1 min probetest
-        probetest_list.append(probetest_coords_2)
-        probetest_coll = PatchCollection(probetest_list, alpha=0.1, color='blue')
-        ax.add_collection(probetest_coll)
-        probetest_coll_border = PatchCollection(probetest_list, facecolor='none', edgecolor='black', alpha=0.5)
-        ax.add_collection(probetest_coll_border)
-        tone_patch = mpatches.Patch(color='blue', label='S2', alpha=0.1)
-        handles.append(tone_patch)
-    
-    else:
-        probetest_list = []
-        probetest_coords = plt.Rectangle((3, 0), 1, 100) # 1 min probetest
-        probetest_list.append(probetest_coords)
-        probetest_coords_2 = plt.Rectangle((5, 0), 1, 100) # 1 min probetest
-        probetest_list.append(probetest_coords_2)
-        probetest_coll = PatchCollection(probetest_list, alpha=0.1, color='red')
-        ax.add_collection(probetest_coll)
-        probetest_coll_border = PatchCollection(probetest_list, facecolor='none', edgecolor='black', alpha=0.5)
-        ax.add_collection(probetest_coll_border)
-        tone_patch = mpatches.Patch(color='red', label='S1', alpha=0.1)
-        handles.append(tone_patch)
+    probetest_list = []
+    probetest_coords = plt.Rectangle((3, 0), 1, 100) # 5 min probetest
+    probetest_list.append(probetest_coords)
+    probetest_coords_2 = plt.Rectangle((5, 0), 1, 100) # 1 min probetest
+    probetest_list.append(probetest_coords_2)
+    probetest_coll = PatchCollection(probetest_list, alpha=0.1, color=color)
+    ax.add_collection(probetest_coll)
+    probetest_coll_border = PatchCollection(probetest_list, facecolor='none', edgecolor='black', alpha=0.5)
+    ax.add_collection(probetest_coll_border)
+    tone_patch = mpatches.Patch(color=color, label='on period', alpha=0.1)
+    handles.append(tone_patch)        
         
     plt.legend(handles=handles)
        
@@ -273,7 +267,7 @@ def timeseries_supervised(supervised_annotation, protocol='S1', selected_column_
 # Plotting barplots based on the CSV file
 # =============================================================================
 
-def barplot_OffOn(ax=None, hue='S2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3):
+def barplot_OffOn(ax=None, conditions_column='protocol', hue='s2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3):
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -284,8 +278,8 @@ def barplot_OffOn(ax=None, hue='S2', values_column='huddle', bin_size=60, durati
     on_position = 1
     # bar_width = 0.6
     
-    off_list = csv_generator(supervised_annotation, hue, values_column, offn, bin_size, duration)
-    on_list = csv_generator(supervised_annotation, hue, values_column, onn, bin_size, duration)
+    off_list = csv_generator(supervised_annotation, conditions_column, hue, values_column, offn, bin_size, duration)
+    on_list = csv_generator(supervised_annotation, conditions_column, hue, values_column, onn, bin_size, duration)
                   
     off_data = np.mean(off_list)
     on_data = np.mean(on_list)
@@ -393,7 +387,7 @@ def OffOn_multiplot():
     plt.show()
 
 
-def discrimination_index(ax=None, index='di', hue_1='S1', hue_2='S2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3):
+def discrimination_index(ax=None, index='di', conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3):
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -404,11 +398,11 @@ def discrimination_index(ax=None, index='di', hue_1='S1', hue_2='S2', values_col
     position_2 = 1
     # bar_width = 0.6
     
-    off_list_1 = csv_generator(supervised_annotation, hue_1, values_column, offn, bin_size, duration)
-    on_list_1 = csv_generator(supervised_annotation, hue_1, values_column, onn, bin_size, duration)
+    off_list_1 = csv_generator(supervised_annotation, conditions_column, hue_1, values_column, offn, bin_size, duration)
+    on_list_1 = csv_generator(supervised_annotation, conditions_column, hue_1, values_column, onn, bin_size, duration)
     
-    off_list_2 = csv_generator(supervised_annotation, hue_2, values_column, offn, bin_size, duration)
-    on_list_2 = csv_generator(supervised_annotation, hue_2, values_column, onn, bin_size, duration)
+    off_list_2 = csv_generator(supervised_annotation, conditions_column, hue_2, values_column, offn, bin_size, duration)
+    on_list_2 = csv_generator(supervised_annotation, conditions_column, hue_2, values_column, onn, bin_size, duration)
 
     # DISCRIMINATION INDEX
     if index == 'di':
@@ -544,16 +538,16 @@ def multiplot_index():
     plt.show()
 
 
-def cohens_d(supervised_annotation, hue_1='S1', hue_2='S2', values_column='climbing', bin_size=60, duration=360):
+def cohens_d(supervised_annotation, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='climbing', bin_size=60, duration=360):
 
     protocols = [hue_1, hue_2]
     cohens_d_list = []
 
     for hue in protocols:
-        data_1 = csv_generator(supervised_annotation, hue, values_column, 2, bin_size, duration)
-        data_2 = csv_generator(supervised_annotation, hue, values_column, 3, bin_size, duration)
-        data_3 = csv_generator(supervised_annotation, hue, values_column, 4, bin_size, duration)
-        data_4 = csv_generator(supervised_annotation, hue, values_column, 5, bin_size, duration)
+        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration)
+        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration)
+        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration)
+        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration)
         
         # arcsine_data_1 = [np.arcsin(np.sqrt(p / 100)) for p in data_1]
         # arcsine_data_2 = [np.arcsin(np.sqrt(p / 100)) for p in data_2]
@@ -588,7 +582,7 @@ def cohens_d(supervised_annotation, hue_1='S1', hue_2='S2', values_column='climb
     return cohens_d_1, cohens_d_2
 
 
-def easy_index(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', values_column='climbing', bin_size=60, duration=360):
+def easy_index(supervised_annotation, ax=None, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360):
 
     if ax is None:
         fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -597,10 +591,10 @@ def easy_index(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', values_co
     protocols_dict = {}
     
     for hue in protocols:
-        data_1 = csv_generator(supervised_annotation, hue, values_column, 2, bin_size, duration)
-        data_2 = csv_generator(supervised_annotation, hue, values_column, 3, bin_size, duration)
-        data_3 = csv_generator(supervised_annotation, hue, values_column, 4, bin_size, duration)
-        data_4 = csv_generator(supervised_annotation, hue, values_column, 5, bin_size, duration)
+        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration)
+        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration)
+        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration)
+        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration)
         
         # arcsine_data_1 = [np.arcsin(np.sqrt(p / 100)) for p in data_1]
         # arcsine_data_2 = [np.arcsin(np.sqrt(p / 100)) for p in data_2]
@@ -615,22 +609,22 @@ def easy_index(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', values_co
     for key, value in protocols_dict.items():
         rmsd_list = []
         for i in range(len(data_1)):
-            # squared_deviations = [(value[1][i] - value[0][i]) / (value[1][i] + value[0][i]),
-            #                         (value[1][i] - value[2][i]) / (value[1][i] + value[2][i]),
-            #                         (value[3][i] - value[2][i]) / (value[3][i] + value[2][i])
-            #                       ]
+            squared_deviations = [(value[1][i] - value[0][i]) / (value[1][i] + value[0][i]),
+                                    (value[1][i] - value[2][i]) / (value[1][i] + value[2][i]),
+                                    (value[3][i] - value[2][i]) / (value[3][i] + value[2][i])
+                                  ]
             
             # For climbing
-            squared_deviations = [(value[0][i] - value[1][i]) / (value[1][i] + value[0][i]),
-                                    (value[2][i] - value[1][i]) / (value[1][i] + value[2][i]),
-                                    (value[2][i] - value[3][i]) / (value[3][i] + value[2][i])
-                                  ]
+            # squared_deviations = [(value[0][i] - value[1][i]) / (value[1][i] + value[0][i]),
+            #                         (value[2][i] - value[1][i]) / (value[1][i] + value[2][i]),
+            #                         (value[2][i] - value[3][i]) / (value[3][i] + value[2][i])
+            #                       ]
                         
             rmsd = statistics.mean(squared_deviations)
             rmsd_list.append(rmsd)
         data_dict[key] = rmsd_list
         
-    tags = ['D.I.>0.4', '0.3<D.I.<0.4', '0.2<D.I.<0.3', '0.1<D.I.<0.2', 'D.I.<0.1']
+    tags = ['>0.4', '0.3-0.4', '0.2-0.3', '0.1-0.2', '<0.1']
     colors = ['#64ff5c', '#bad900', '#e8ae00', '#ff7f1d', '#ff4f4f']
     
     def count_function(data_dict, tags, colors, protocol):
@@ -661,7 +655,7 @@ def easy_index(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', values_co
     plt.show()
 
 
-def easy_index_dots(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', values_column='climbing', bin_size=60, duration=360):
+def easy_index_dots(supervised_annotation, ax=None, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360):
     
     if ax is None:
         fig, ax = plt.subplots()
@@ -675,10 +669,10 @@ def easy_index_dots(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', valu
     protocols_dict = {}
     
     for hue in protocols:
-        data_1 = csv_generator(supervised_annotation, hue, values_column, 2, bin_size, duration)
-        data_2 = csv_generator(supervised_annotation, hue, values_column, 3, bin_size, duration)
-        data_3 = csv_generator(supervised_annotation, hue, values_column, 4, bin_size, duration)
-        data_4 = csv_generator(supervised_annotation, hue, values_column, 5, bin_size, duration)
+        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration)
+        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration)
+        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration)
+        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration)
         
         # arcsine_data_1 = [np.arcsin(np.sqrt(p / 100)) for p in data_1]
         # arcsine_data_2 = [np.arcsin(np.sqrt(p / 100)) for p in data_2]
@@ -693,16 +687,16 @@ def easy_index_dots(supervised_annotation, ax=None, hue_1='S1', hue_2='S2', valu
     for key, value in protocols_dict.items():
         rmsd_list = []
         for i in range(len(data_1)): 
-            # squared_deviations = [(value[1][i] - value[0][i]) / (value[1][i] + value[0][i]),
-            #                         (value[1][i] - value[2][i]) / (value[1][i] + value[2][i]),
-            #                         (value[3][i] - value[2][i]) / (value[3][i] + value[2][i])
-            #                       ]
+            squared_deviations = [(value[1][i] - value[0][i]) / (value[1][i] + value[0][i]),
+                                    (value[1][i] - value[2][i]) / (value[1][i] + value[2][i]),
+                                    (value[3][i] - value[2][i]) / (value[3][i] + value[2][i])
+                                  ]
             
             # For climbing
-            squared_deviations = [(value[0][i] - value[1][i]) / (value[1][i] + value[0][i]),
-                                    (value[2][i] - value[1][i]) / (value[1][i] + value[2][i]),
-                                    (value[2][i] - value[3][i]) / (value[3][i] + value[2][i])
-                                  ]
+            # squared_deviations = [(value[0][i] - value[1][i]) / (value[1][i] + value[0][i]),
+            #                         (value[2][i] - value[1][i]) / (value[1][i] + value[2][i]),
+            #                         (value[2][i] - value[3][i]) / (value[3][i] + value[2][i])
+            #                       ]
                          
             rmsd = statistics.mean(squared_deviations)
             rmsd_list.append(rmsd)
