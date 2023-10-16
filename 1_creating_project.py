@@ -1,5 +1,4 @@
 """
-Version number 1: 27/07/2023
 @author: mcanela
 DeepOF ANALYSIS - PART 1
 Based on: https://deepof.readthedocs.io/en/latest/tutorial_notebooks/deepof_preprocessing_tutorial.html
