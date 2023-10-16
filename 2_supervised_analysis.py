@@ -1,5 +1,4 @@
 """
-Version number 1: 24/07/2023
 @author: mcanela
 DeepOF SUPERVISED ANALYSIS
 https://deepof.readthedocs.io/en/latest/tutorial_notebooks/deepof_supervised_tutorial.html
