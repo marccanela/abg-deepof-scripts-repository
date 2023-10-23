@@ -4,6 +4,7 @@ DeepOF SUPERVISED ANALYSIS
 https://deepof.readthedocs.io/en/latest/tutorial_notebooks/deepof_supervised_tutorial.html
 """
 
+
 import deepof.data
 import deepof.visuals
 import matplotlib.pyplot as plt
@@ -16,6 +17,7 @@ import numpy as np
 import pingouin as pg
 import pickle
 import statistics
+import os
 
 directory_output = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-09 - Young males/DeepOF/'
 
@@ -36,7 +38,25 @@ with open(directory_output + 'supervised_annotation.pkl', 'wb') as file:
 # Alternatively, open an existing supervised analysis
 with open(directory_output + 'supervised_annotation.pkl', 'rb') as file:
     supervised_annotation = pickle.load(file)
+    
+# You may also add the immobility information
+def update_supervised_annotation_with_immobility(supervised_annotation):
 
+    directory_path = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-09 - Young males/DeepOF/Data/pickles/'
+    
+    for filename in os.listdir(directory_path):
+        if filename.endswith('.pck'):
+            file_path = os.path.join(directory_path, filename)            
+            with open(file_path, 'rb') as file:
+                binary_data = [np.nan] + [int(x) for x in pickle.load(file)['freezing'].tolist()]
+                tag = filename.split("DLC")[0]
+                
+                if tag in supervised_annotation:
+                    df = supervised_annotation[tag]
+                    df['immobility'] = binary_data                
+                    supervised_annotation[tag] = df
+                                
+                
 # =============================================================================
 # Generating gant charts of all traits of a specific video
 # =============================================================================
@@ -104,7 +124,18 @@ def enrichment_plot(my_deepof_project, supervised_annotation):
 # Defining functions for future analysis and plotting
 # =============================================================================
 
-def csv_generator(supervised_annotation, conditions_column, hue, values_column, bin_num, bin_size, duration):
+def filter_out_other_behavior(supervised_annotation, filter_out):
+        
+    copy_supervised_annotation = copy.deepcopy(supervised_annotation)
+    for key, df in copy_supervised_annotation.items():
+        mask = df[filter_out] == 1
+        df[mask] = np.nan
+        copy_supervised_annotation[key] = df           
+        
+    return copy_supervised_annotation
+
+
+def csv_generator(supervised_annotation, conditions_column, hue, values_column, bin_num, bin_size, duration, filter_out=''):
     '''
     Parameters
     ----------
@@ -116,7 +147,10 @@ def csv_generator(supervised_annotation, conditions_column, hue, values_column, 
     duration: int (total expected duration of the videos, in seconds)
     '''
     
-    copy_supervised_annotation = copy.deepcopy(supervised_annotation) 
+    if filter_out != '':
+        copy_supervised_annotation = filter_out_other_behavior(supervised_annotation, filter_out=filter_out)
+    else:
+        copy_supervised_annotation = copy.deepcopy(supervised_annotation)
     
     conditions = pd.read_csv(directory_output + "conditions.csv")
     conditions_list = conditions[conditions[conditions_column] == hue]['experiment_id'].to_list()
@@ -161,7 +195,7 @@ def csv_generator(supervised_annotation, conditions_column, hue, values_column, 
 # Plotting a timelapse plot of a specific trait
 # =============================================================================
 
-def timeseries_supervised(ax=None, conditions_column='protocol', hues=['s1', 's2'], color='blue', behavior='huddle', length=360, bin_size=10):
+def timeseries_supervised(ax=None, conditions_column='protocol', hues=['s1', 's2'], color='blue', behavior='huddle', length=360, bin_size=10, filter_out=''):
     '''
     Parameters
     ----------
@@ -173,7 +207,10 @@ def timeseries_supervised(ax=None, conditions_column='protocol', hues=['s1', 's2
     bin_size: int (bin size in seconds)
     '''
     
-    copy_supervised_annotation = copy.deepcopy(supervised_annotation) 
+    if filter_out != '':
+        copy_supervised_annotation = filter_out_other_behavior(supervised_annotation, filter_out=filter_out)
+    else:
+        copy_supervised_annotation = copy.deepcopy(supervised_annotation)
     
     conditions = pd.read_csv(directory_output + "conditions.csv")
     
@@ -264,10 +301,10 @@ def timeseries_supervised(ax=None, conditions_column='protocol', hues=['s1', 's2
     return ax
 
 # =============================================================================
-# Plotting barplots based on the CSV file
+# Plotting barplots based on the csv_generator function
 # =============================================================================
 
-def barplot_OffOn(ax=None, conditions_column='protocol', hue='s2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3):
+def barplot_OffOn(ax=None, conditions_column='protocol', hue='s2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3, filter_out=''):
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -278,8 +315,8 @@ def barplot_OffOn(ax=None, conditions_column='protocol', hue='s2', values_column
     on_position = 1
     # bar_width = 0.6
     
-    off_list = csv_generator(supervised_annotation, conditions_column, hue, values_column, offn, bin_size, duration)
-    on_list = csv_generator(supervised_annotation, conditions_column, hue, values_column, onn, bin_size, duration)
+    off_list = csv_generator(supervised_annotation, conditions_column, hue, values_column, offn, bin_size, duration, filter_out)
+    on_list = csv_generator(supervised_annotation, conditions_column, hue, values_column, onn, bin_size, duration, filter_out)
                   
     off_data = np.mean(off_list)
     on_data = np.mean(on_list)
@@ -287,10 +324,10 @@ def barplot_OffOn(ax=None, conditions_column='protocol', hue='s2', values_column
     off_error = np.std(off_list, ddof=1)
     on_error = np.std(on_list, ddof=1)
     
-    if hue == 'S1':
+    if hue == 's1':
         on_color = 'salmon'
         on_edge = 'darkred'
-    elif hue == 'S2':
+    elif hue == 's2':
         on_color = 'cornflowerblue'
         on_edge = 'darkblue'
     else:
@@ -371,10 +408,10 @@ def OffOn_multiplot():
     # bin_size=60, duration=360, offn=2, onn=3
     
     # Plot data on ax1
-    barplot_OffOn(ax=ax1, hue='S1', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3)
+    barplot_OffOn(ax=ax1, hue='S1', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3, filter_out='')
     
     # Plot data on ax2
-    barplot_OffOn(ax=ax2, hue='S2', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3)
+    barplot_OffOn(ax=ax2, hue='S2', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3, filter_out='')
     
     # Adjust the spacing between subplots
     plt.tight_layout()
@@ -387,7 +424,7 @@ def OffOn_multiplot():
     plt.show()
 
 
-def discrimination_index(ax=None, index='di', conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3):
+def discrimination_index(ax=None, index='di', conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360, offn=2, onn=3, filter_out=''):
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -398,11 +435,11 @@ def discrimination_index(ax=None, index='di', conditions_column='protocol', hue_
     position_2 = 1
     # bar_width = 0.6
     
-    off_list_1 = csv_generator(supervised_annotation, conditions_column, hue_1, values_column, offn, bin_size, duration)
-    on_list_1 = csv_generator(supervised_annotation, conditions_column, hue_1, values_column, onn, bin_size, duration)
+    off_list_1 = csv_generator(supervised_annotation, conditions_column, hue_1, values_column, offn, bin_size, duration, filter_out)
+    on_list_1 = csv_generator(supervised_annotation, conditions_column, hue_1, values_column, onn, bin_size, duration, filter_out)
     
-    off_list_2 = csv_generator(supervised_annotation, conditions_column, hue_2, values_column, offn, bin_size, duration)
-    on_list_2 = csv_generator(supervised_annotation, conditions_column, hue_2, values_column, onn, bin_size, duration)
+    off_list_2 = csv_generator(supervised_annotation, conditions_column, hue_2, values_column, offn, bin_size, duration, filter_out)
+    on_list_2 = csv_generator(supervised_annotation, conditions_column, hue_2, values_column, onn, bin_size, duration, filter_out)
 
     # DISCRIMINATION INDEX
     if index == 'di':
@@ -520,11 +557,11 @@ def multiplot_index():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6, 4))  # 1 row, 2 columns
     
     # Plot data on ax1
-    discrimination_index(ax=ax1, index='di', hue_1='S1', hue_2='S2', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3)
+    discrimination_index(ax=ax1, index='di', hue_1='S1', hue_2='S2', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3, filter_out='')
     ax1.set_title('Discrimination Index (D.I.)')
     
     # Plot data on ax2
-    discrimination_index(ax=ax2, index='gi', hue_1='S1', hue_2='S2', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3)
+    discrimination_index(ax=ax2, index='gi', hue_1='S1', hue_2='S2', values_column='lookaround', bin_size=60, duration=360, offn=2, onn=3, filter_out='')
     ax2.set_title('Generalization Index (G.I.)')
 
     # Adjust the spacing between subplots
@@ -538,16 +575,16 @@ def multiplot_index():
     plt.show()
 
 
-def cohens_d(supervised_annotation, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='climbing', bin_size=60, duration=360):
+def cohens_d(supervised_annotation, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='climbing', bin_size=60, duration=360, filter_out=''):
 
     protocols = [hue_1, hue_2]
     cohens_d_list = []
 
     for hue in protocols:
-        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration)
-        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration)
-        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration)
-        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration)
+        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration, filter_out)
+        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration, filter_out)
+        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration, filter_out)
+        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration, filter_out)
         
         # arcsine_data_1 = [np.arcsin(np.sqrt(p / 100)) for p in data_1]
         # arcsine_data_2 = [np.arcsin(np.sqrt(p / 100)) for p in data_2]
@@ -582,7 +619,7 @@ def cohens_d(supervised_annotation, conditions_column='protocol', hue_1='s1', hu
     return cohens_d_1, cohens_d_2
 
 
-def easy_index(supervised_annotation, ax=None, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360):
+def easy_index(supervised_annotation, ax=None, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='lookaround', bin_size=60, duration=360, filter_out=''):
 
     if ax is None:
         fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -591,10 +628,10 @@ def easy_index(supervised_annotation, ax=None, conditions_column='protocol', hue
     protocols_dict = {}
     
     for hue in protocols:
-        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration)
-        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration)
-        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration)
-        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration)
+        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration, filter_out)
+        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration, filter_out)
+        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration, filter_out)
+        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration, filter_out)
         
         # arcsine_data_1 = [np.arcsin(np.sqrt(p / 100)) for p in data_1]
         # arcsine_data_2 = [np.arcsin(np.sqrt(p / 100)) for p in data_2]
@@ -655,7 +692,7 @@ def easy_index(supervised_annotation, ax=None, conditions_column='protocol', hue
     plt.show()
 
 
-def easy_index_dots(supervised_annotation, ax=None, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='huddle', bin_size=60, duration=360):
+def easy_index_dots(supervised_annotation, ax=None, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='lookaround', bin_size=60, duration=360, filter_out=''):
     
     if ax is None:
         fig, ax = plt.subplots()
@@ -669,10 +706,10 @@ def easy_index_dots(supervised_annotation, ax=None, conditions_column='protocol'
     protocols_dict = {}
     
     for hue in protocols:
-        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration)
-        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration)
-        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration)
-        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration)
+        data_1 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 2, bin_size, duration, filter_out)
+        data_2 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 3, bin_size, duration, filter_out)
+        data_3 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 4, bin_size, duration, filter_out)
+        data_4 = csv_generator(supervised_annotation, conditions_column, hue, values_column, 5, bin_size, duration, filter_out)
         
         # arcsine_data_1 = [np.arcsin(np.sqrt(p / 100)) for p in data_1]
         # arcsine_data_2 = [np.arcsin(np.sqrt(p / 100)) for p in data_2]
@@ -708,20 +745,20 @@ def easy_index_dots(supervised_annotation, ax=None, conditions_column='protocol'
     discrimination_error_1 = np.std(data_dict[hue_1], ddof=1)
     discrimination_error_2 = np.std(data_dict[hue_2], ddof=1)
     
-    if hue_1 == 'S1':
+    if hue_1 == 's1':
         on_color_1 = 'salmon'
         on_edge_1 = 'darkred'
-    elif hue_1 == 'S2':
+    elif hue_1 == 's2':
         on_color_1 = 'cornflowerblue'
         on_edge_1 = 'darkblue'
     else:
         on_color_1 = 'moccasin'
         on_edge_1 = 'darkorange'
         
-    if hue_2 == 'S1':
+    if hue_2 == 's1':
         on_color_2 = 'salmon'
         on_edge_2 = 'darkred'
-    elif hue_2 == 'S2':
+    elif hue_2 == 's2':
         on_color_2 = 'cornflowerblue'
         on_edge_2 = 'darkblue'
     else:
