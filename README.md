@@ -15,3 +15,6 @@ pip install deepof
 ```
 
 ## Usage
+
+1. Start by creating your project using the script `1_creating_project.py`.
+2. Run a supervised analysis using `2_supervised_analysis.py`.
