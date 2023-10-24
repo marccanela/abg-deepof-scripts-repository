@@ -1,2 +1,17 @@
-# deepof_abg
-Python scripts to analyze DLC behavior through DeepOF
+# Busquets-Garcia Lab DeepOF Scripts Repository
+Welcome to the Busquets-Garcia Lab DeepOF Scripts Repository. This repository contains personalized scripts for running the DeepOF Python package, designed to work with the output from DeepLabCut (DLC).
+
+## Installation
+To get started with these personalized DeepOF scripts, you may start by cloning the repository to your local machine using the following command:
+
+```bash
+git clone https://github.com/BusquetsGarciaLab/DeepOF-Scripts.git
+```
+
+Make sure you have the required dependencies installed. You can typically install these via pip:
+
+```bash
+pip install deepof
+```
+
+## Usage
