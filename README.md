@@ -18,3 +18,4 @@ pip install deepof
 
 1. Start by creating your project using the script `1_creating_project.py`.
 2. Run a supervised analysis using the script `2_supervised_analysis.py`.
+3. Plot your data using the script `3_plots.py`
