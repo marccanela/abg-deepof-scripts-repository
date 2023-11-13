@@ -23,7 +23,7 @@ directory_videos = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) 
 # Creating a new DeepOF project
 # =============================================================================
 
-def creating_deepof_project(directory_output, directory_dlc, directory_videos, manual=False):
+def creating_deepof_project(directory_output, directory_dlc, directory_videos, manual=False, scale=200):
     if manual == False:
         arena = 'polygonal-autodetect'
     elif manual == True:
@@ -37,7 +37,7 @@ def creating_deepof_project(directory_output, directory_dlc, directory_videos, m
                         # animal_ids=["Animal_1", 'Animal_2'],
                         video_format=".avi",
                         # exclude_bodyparts=["Tail_1", "Tail_2", "Tail_tip"],
-                        video_scale=200,  # in mm
+                        video_scale=scale,  # in mm
                         enable_iterative_imputation=10,
                         smooth_alpha=1,
                         exp_conditions=None,
@@ -74,9 +74,26 @@ def check_conditions(directory_output, my_deepof_project, col_name='protocol'):
         print("\t{} videos corresponding to ".format(len(coords_filter)) + condition)    
 
 
+# =============================================================================
+# Loading a previously generated project
+# =============================================================================
 
+my_deepof_project = deepof.data.load_project(directory_output + "deepof_tutorial_project")
 
+directory_path = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-09 - Young males/DeepOF/Data/pickles/'
 
+def update_supervised_annotation_with_immobility(supervised_annotation, directory_path):
+    for filename in os.listdir(directory_path):
+        if filename.endswith('.pck'):
+            file_path = os.path.join(directory_path, filename)            
+            with open(file_path, 'rb') as file:
+                binary_data = [np.nan] + [int(x) for x in pickle.load(file)['freezing'].tolist()]
+                tag = filename.split("DLC")[0]
+                
+                if tag in supervised_annotation:
+                    df = supervised_annotation[tag]
+                    df['immobility'] = binary_data                
+                    supervised_annotation[tag] = df
 
 
 
