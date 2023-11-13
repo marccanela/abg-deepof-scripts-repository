@@ -1,6 +1,5 @@
 """
 @author: mcanela
-DeepOF ANALYSIS - PART 1
 Based on: https://deepof.readthedocs.io/en/latest/tutorial_notebooks/deepof_preprocessing_tutorial.html
 """
 
@@ -24,13 +23,17 @@ directory_videos = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) 
 # Creating a new DeepOF project
 # =============================================================================
 
-def creating_deepof_project(directory_output, directory_dlc, directory_videos):
+def creating_deepof_project(directory_output, directory_dlc, directory_videos, manual=False):
+    if manual == False:
+        arena = 'polygonal-autodetect'
+    elif manual == True:
+        arena = 'polygonal-manual'
     my_deepof_project = deepof.data.Project(
                         project_path=os.path.join(directory_output),
                         video_path=os.path.join(directory_videos),
                         table_path=os.path.join(directory_dlc),
                         project_name="deepof_tutorial_project",
-                        arena="polygonal-manual",
+                        arena=arena,
                         # animal_ids=["Animal_1", 'Animal_2'],
                         video_format=".avi",
                         # exclude_bodyparts=["Tail_1", "Tail_2", "Tail_tip"],
