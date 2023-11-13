@@ -1,0 +1,9 @@
+{
+    "grammarly.selectors": [
+        {
+            "language": "markdown",
+            "scheme": "vscode-notebook-cell",
+            "pattern": "\\becell\\Lab Projects\\ERCstG_HighMemory\\Data\\Marc\\github\\abg-deepof-scripts-repository\\1_creating a project.ipynb"
+        }
+    ]
+}
