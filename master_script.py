@@ -7,10 +7,10 @@ Based on: https://deepof.readthedocs.io/en/latest/tutorial_notebooks/deepof_prep
 # Importing packages and directories
 # =============================================================================
 
-#import os
-#import pandas as pd
-#import deepof.data
-#import numpy as np
+import os
+import pandas as pd
+import deepof.data
+import numpy as np
 
 # NOTE: Run the corrected videos with the DLC files of the corrected videos
 
