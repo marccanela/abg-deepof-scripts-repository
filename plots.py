@@ -349,11 +349,11 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     
     data_position = 0
     
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','no-shock'], column, bin_size=60)
     data1 = data1[data1.bin == 3] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data1 = data1[column].tolist()
 
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','no-shock'], column, bin_size=60)
     data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data2 = data2[column].tolist()
     
@@ -409,7 +409,6 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     return ax
 
 
-
 def discrimination_index_summary(supervised_annotation, directory_output, column='huddle', ax=None):
     
     if ax is None:
@@ -450,20 +449,27 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     bar2 = ax.barh(categories, np.array(values)[1], bar_height, left=np.array(values)[0], align='center', color='#194680', label='0.3-0.4')    
     bar3 = ax.barh(categories, np.array(values)[2], bar_height, left=np.array(values)[0] + np.array(values)[1], align='center', color='#194680', label='0.2-0.3')    
     bar4 = ax.barh(categories, np.array(values)[3], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2], align='center', color='#636466', label='0.1-0.2')    
-    bar5 = ax.barh(categories, np.array(values)[4], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2] + np.array(values)[3], align='center', color='#636466', label='<0.1')    
+    bar5 = ax.barh(categories, np.array(values)[4], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2] + np.array(values)[3], align='center', color='#636466', label='<0.1')            
     
     ax.set_yticks([])  # Hide y-axis ticks
+    
+    ax.set_xlabel('% of animals', loc='left')
     plt.xlim(0,100)
     ax.xaxis.set_major_formatter(mtick.PercentFormatter()) #Add % symbol to the X axis
 
     # Move x-axis ticks and label to the top
-    ax.xaxis.tick_top()
-    ax.xaxis.set_label_position('top')
+    # ax.xaxis.tick_top()
+    # ax.xaxis.set_label_position('top')
+    
+    # Remove the frame around the plot
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
     
     # Grey color
     ax.xaxis.label.set_color('#636466')
     ax.yaxis.label.set_color('#636466')
-    ax.tick_params(axis='x', colors='#636466')
+    ax.tick_params(axis='x', which='both', bottom=True, colors='#636466')
     ax.tick_params(axis='y', colors='#636466')
     
     plt.title('Distribution of Discrimination Index (' + column.capitalize() + ") among in TRAP2 mice", loc = 'left', color='#636466')
@@ -471,7 +477,8 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     # Add labels inside the bars
     for bars, label in zip([bar1, bar2, bar3, bar4, bar5], ['DI\nMore than 0.4', 'DI\n0.3 to 0.4', 'DI\n0.2 to 0.3', 'DI\n0.1 to 0.2', 'DI\nLess than 0.1']):
         for bar in bars:
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_y() + bar.get_height() / 2,
+            if bar.get_width() != 0:
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_y() + bar.get_height() / 2,
                     label, color='white', ha='center', va='center', fontsize=9)
         
     plt.tight_layout()
