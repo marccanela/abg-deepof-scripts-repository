@@ -149,6 +149,28 @@ def calculate_global_discrimination(data1, data2, data3, data4):
     
     return mean_list
 
+
+def count_function(my_list):
+        
+    total = sum(1 for num in my_list)
+    count_non = sum(1 for num in my_list if -1 <= num < 0.1)
+    count_poor = sum(1 for num in my_list if 0.1 <= num < 0.2)
+    count_average = sum(1 for num in my_list if 0.2 <= num < 0.3)
+    count_good = sum(1 for num in my_list if 0.3 <= num < 0.4)
+    count_excellent = sum(1 for num in my_list if 0.4 <= num < 1) 
+    # values = [count_non, count_poor, count_average, count_good, count_excellent]
+    values = [count_excellent, count_good, count_average, count_poor, count_non]
+    values = [x/total for x in values]
+    values = [x*100 for x in values]
+    
+    # values_dict = dict(zip(tags, values))
+    # for key, value in list(values_dict.items()):
+    #     if value == 0:
+    #         del values_dict[key]
+            
+    return values
+
+
 # =============================================================================
 # Plot function
 # =============================================================================
@@ -320,7 +342,6 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(2.5,4))
-
     
     sns.set_theme(style="whitegrid")
     ax.yaxis.grid(True)
@@ -336,13 +357,13 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data2 = data2[column].tolist()
     
-    data3 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
-    data3 = data3[data3.bin == 5] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
-    data3 = data3[column].tolist()
+    # data3 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    # data3 = data3[data3.bin == 5] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+    # data3 = data3[column].tolist()
     
-    data4 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
-    data4 = data4[data4.bin == 6] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
-    data4 = data4[column].tolist()
+    # data4 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    # data4 = data4[data4.bin == 6] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+    # data4 = data4[column].tolist()
     
     # To calculate the discrimination index (2-3 vs 3-4)
     discrimination = calculate_discrimination(data1, data2)
@@ -389,6 +410,87 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
 
 
 
+def discrimination_index_summary(supervised_annotation, directory_output, column='huddle', ax=None):
+    
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(7,2))
+    
+    sns.set_theme(style="whitegrid")
+    ax.yaxis.grid(True)
+    ax.xaxis.grid(False)
+        
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    data1 = data1[data1.bin == 3] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+    data1 = data1[column].tolist()
+
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+    data2 = data2[column].tolist()
+    
+    # data3 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    # data3 = data3[data3.bin == 5] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+    # data3 = data3[column].tolist()
+    
+    # data4 = data_set_to_plot(supervised_annotation, directory_output, ['protocol','group'], ['s2','shock'], column, bin_size=60)
+    # data4 = data4[data4.bin == 6] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+    # data4 = data4[column].tolist()
+    
+    # To calculate the discrimination index (2-3 vs 3-4)
+    discrimination = calculate_discrimination(data1, data2)
+    
+    # To calculate the global discrimination index (2-3 vs 3-4 vs 4-5 vs 5-6)
+    # discrimination = calculate_global_discrimination(data1, data2, data3, data4)  
+ 
+    values = count_function(discrimination)
+    
+    bar_height = 0.3
+    categories = [0]
+    
+    bar1 = ax.barh(categories, np.array(values)[0], bar_height, left=0, align='center', color='#194680', label='>0.4')
+    bar2 = ax.barh(categories, np.array(values)[1], bar_height, left=np.array(values)[0], align='center', color='#194680', label='0.3-0.4')    
+    bar3 = ax.barh(categories, np.array(values)[2], bar_height, left=np.array(values)[0] + np.array(values)[1], align='center', color='#194680', label='0.2-0.3')    
+    bar4 = ax.barh(categories, np.array(values)[3], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2], align='center', color='#636466', label='0.1-0.2')    
+    bar5 = ax.barh(categories, np.array(values)[4], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2] + np.array(values)[3], align='center', color='#636466', label='<0.1')    
+    
+    ax.set_yticks([])  # Hide y-axis ticks
+    plt.xlim(0,100)
+    ax.xaxis.set_major_formatter(mtick.PercentFormatter()) #Add % symbol to the X axis
+
+    # Move x-axis ticks and label to the top
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position('top')
+    
+    # Grey color
+    ax.xaxis.label.set_color('#636466')
+    ax.yaxis.label.set_color('#636466')
+    ax.tick_params(axis='x', colors='#636466')
+    ax.tick_params(axis='y', colors='#636466')
+    
+    plt.title('Distribution of Discrimination Index (' + column.capitalize() + ") among in TRAP2 mice", loc = 'left', color='#636466')
+    
+    # Add labels inside the bars
+    for bars, label in zip([bar1, bar2, bar3, bar4, bar5], ['DI\nMore than 0.4', 'DI\n0.3 to 0.4', 'DI\n0.2 to 0.3', 'DI\n0.1 to 0.2', 'DI\nLess than 0.1']):
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_y() + bar.get_height() / 2,
+                    label, color='white', ha='center', va='center', fontsize=9)
+        
+    plt.tight_layout()
+    return ax
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 
 
