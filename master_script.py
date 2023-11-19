@@ -14,6 +14,10 @@ import deepof.data
 import pandas as pd
 import numpy as np
 
+import deepof.visuals
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 # =============================================================================
 # Creating a new DeepOF project
 # =============================================================================
