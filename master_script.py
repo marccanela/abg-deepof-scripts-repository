@@ -24,15 +24,15 @@ import seaborn as sns
 
 def creating_deepof_project(directory_output, directory_dlc, directory_videos, manual, scale):
     if manual == False:
-        arena = 'polygonal-autodetect'
+        arena_type = 'polygonal-autodetect'
     elif manual == True:
-        arena = 'polygonal-manual'
+        arena_type = 'polygonal-manual'
     my_deepof_project = deepof.data.Project(
                         project_path=os.path.join(directory_output),
                         video_path=os.path.join(directory_videos),
                         table_path=os.path.join(directory_dlc),
                         project_name="deepof_tutorial_project",
-                        arena=arena,
+                        arena=arena_type,
                         # animal_ids=["Animal_1", 'Animal_2'],
                         video_format=".avi",
                         # exclude_bodyparts=["Tail_1", "Tail_2", "Tail_tip"],
