@@ -15,4 +15,4 @@ pip install deepof
 ```
 
 ## Examples of plots
-![Plots generated with DeepOF data]([https://github.com/[username]/[reponame]/blob/[branch]/image.jpg](https://github.com/marccanela/abg-deepof-scripts-repository/blob/main/plot_examples_deepof.PNG)https://github.com/marccanela/abg-deepof-scripts-repository/blob/main/plot_examples_deepof.PNG)
+![Plots generated with DeepOF data](https://github.com/marccanela/abg-deepof-scripts-repository/blob/main/plot_examples_deepof.PNG)
