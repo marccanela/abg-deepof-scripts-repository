@@ -7,10 +7,14 @@ DeepOF SUPERVISED ANALYSIS TIMESERIES PLOTS
 import copy
 import numpy as np
 import pandas as pd
+import os
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.collections import PatchCollection
 import matplotlib.ticker as mtick
+
+from scipy.stats import ttest_rel, wilcoxon
 
 # =============================================================================
 # Defining functions for future plotting
@@ -175,7 +179,7 @@ def count_function(my_list):
 # Plot functions
 # =============================================================================
 
-def timeseries(supervised_annotation, directory_output, column='lookaround', ax=None):
+def timeseries(supervised_annotation, directory_output, column='speed', color_contrast='#194680', ax=None):
     '''
     Parameters
     ----------
@@ -189,8 +193,6 @@ def timeseries(supervised_annotation, directory_output, column='lookaround', ax=
     # other blues = royalblue
     # grey color storytelling = #636466
     
-    color_contrast = '#801946'
-    
     if ax is None:
         fig, ax = plt.subplots(figsize=(7,4))
         
@@ -200,22 +202,24 @@ def timeseries(supervised_annotation, directory_output, column='lookaround', ax=
     
     label_offset = 0.2  # Offset for label positioning
     
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], ['Direct', 'No-shock'], column)
     data1['bin']= data1['bin'] / 6
-    sns.lineplot(x=data1['bin'], y=data1[column], label='', legend=None, color=color_contrast)
-    ax.text(data1['bin'].iloc[-1] + label_offset, data1[data1.bin == data1.bin.iloc[-1]][column].mean(), 'Direct', fontsize=12, color=color_contrast, weight='bold')
+    sns.lineplot(x=data1['bin'], y=data1[column], label='', legend=None, color='grey')
+    ax.text(data1['bin'].iloc[-1] + label_offset, data1[data1.bin == data1.bin.iloc[-1]][column].mean(), 'Direct', fontsize=12, color='grey', weight='bold')
 
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s2'], column)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], ['Mediated', 'No-shock'], column)
     data2['bin']= data2['bin'] / 6
-    sns.lineplot(x=data2['bin'], y=data2[column], label='', legend=None, color='grey')    
-    ax.text(data2['bin'].iloc[-1] + label_offset, data2[data2.bin == data2.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color='grey', weight='bold')
-
-    plt.ylim(0,100)
+    sns.lineplot(x=data2['bin'], y=data2[column], label='', legend=None, color=color_contrast)    
+    ax.text(data2['bin'].iloc[-1] + label_offset, data2[data2.bin == data2.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color=color_contrast, weight='bold')
+    
+    upper_limit = 100
+    plt.ylim(0,upper_limit)
+    ax.yaxis.set_major_formatter(mtick.PercentFormatter()) #Add % symbol to the Y axis
     ax.set_xlabel('Minutes', loc='left')
     ax.set_ylabel('Percentage of time doing ' + column, loc='top')
-    ax.yaxis.set_major_formatter(mtick.PercentFormatter()) #Add % symbol to the Y axis
+    # ax.set_ylabel('Speed (mm/frame)', loc='top')
     
-    plt.title(column.capitalize() + " response in young females", loc = 'left', color='#636466')
+    plt.title(column.capitalize() + " response in young-adult males", loc = 'left', color='#636466')
     
     # Grey color
     ax.xaxis.label.set_color('#636466')
@@ -227,42 +231,39 @@ def timeseries(supervised_annotation, directory_output, column='lookaround', ax=
     
     # Shaded area
     probetest_list = []
-    probetest_coords = plt.Rectangle((3, 0), 1, 100)
+    probetest_coords = plt.Rectangle((3, 0), 1, upper_limit)
     probetest_list.append(probetest_coords)
-    probetest_coords_2 = plt.Rectangle((5, 0), 1, 100)
+    probetest_coords_2 = plt.Rectangle((5, 0), 1, upper_limit)
     probetest_list.append(probetest_coords_2)
     probetest_coll = PatchCollection(probetest_list, alpha=0.1, color='#636466')
     ax.add_collection(probetest_coll)
     probetest_coll_border = PatchCollection(probetest_list, facecolor='none', edgecolor='#636466', alpha=0.5)
     ax.add_collection(probetest_coll_border)
-    ax.annotate('Cue', (3.5, 90), ha='center', fontsize=12, color='#636466', weight='bold', alpha=0.5)
-    ax.annotate('Cue', (5.5, 90), ha='center', fontsize=12, color='#636466', weight='bold', alpha=0.5)
+    ax.annotate('Cue', (3.5, upper_limit*0.9), ha='center', fontsize=12, color='#636466', weight='bold', alpha=0.5)
+    ax.annotate('Cue', (5.5, upper_limit*0.9), ha='center', fontsize=12, color='#636466', weight='bold', alpha=0.5)
     
     plt.tight_layout()
     return ax
 
 
-def boxplot(supervised_annotation, directory_output, column='immobility', ax=None):
-
-    color_contrast = '#801946'    
+def boxplot(supervised_annotation, directory_output, column, learning, group, color_contrast, ax=None):
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(3.5,4))
-
     
     sns.set_theme(style="whitegrid")
     ax.yaxis.grid(True)
     ax.xaxis.grid(False)
     
     data1_position = 0
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column, bin_size=60)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
     data1 = data1[data1.bin == 3] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data1 = data1[column].tolist()
     data1_mean = np.mean(data1)
     data1_error = np.std(data1, ddof=1)
 
     data2_position = 1
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column, bin_size=60)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
     data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data2 = data2[column].tolist()
     data2_mean = np.mean(data2)
@@ -305,9 +306,10 @@ def boxplot(supervised_annotation, directory_output, column='immobility', ax=Non
     plt.ylim(0,100)
     ax.set_xlabel('')
     ax.set_ylabel('Percentage of time doing ' + column, loc='top')
+    # ax.set_ylabel('Speed (mm/frame)' + column, loc='top')
     ax.yaxis.set_major_formatter(mtick.PercentFormatter()) #Add % symbol to the Y axis
     
-    plt.title(column.capitalize() + " response in young females", loc = 'left', color='#636466')
+    plt.title(column.capitalize() + " in young-adult males", loc = 'left', color='#636466')
 
     
     # Grey color
@@ -343,10 +345,8 @@ def boxplot(supervised_annotation, directory_output, column='immobility', ax=Non
     return ax
 
 
-def discrimination_index(supervised_annotation, directory_output, column='huddle', ax=None):
+def discrimination_index(supervised_annotation, directory_output, column, learning, group, color_contrast, ax=None):
     
-    color_contrast = '#801946'
-
     if ax is None:
         fig, ax = plt.subplots(figsize=(2.5,4))
     
@@ -356,11 +356,11 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     
     data_position = 0
     
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column, bin_size=60)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
     data1 = data1[data1.bin == 3] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data1 = data1[column].tolist()
 
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column, bin_size=60)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
     data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data2 = data2[column].tolist()
     
@@ -374,6 +374,8 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     
     # To calculate the discrimination index (2-3 vs 3-4)
     discrimination = calculate_discrimination(data1, data2)
+    # discrimination = calculate_discrimination(data2, data1)
+
     
     # To calculate the global discrimination index (2-3 vs 3-4 vs 4-5 vs 5-6)
     # discrimination = calculate_global_discrimination(data1, data2, data3, data4)  
@@ -402,7 +404,7 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     plt.ylim(-1,1)
     ax.axhline(y=0, color='#636466', linestyle='--')
     ax.set_xlabel('')
-    ax.set_ylabel('Discrimination Index ' + column, loc='top')
+    ax.set_ylabel('Discrimination Index ' + column.capitalize(), loc='top')
     
     # plt.title(column.capitalize() + " DI in TRAP2", loc = 'left', color='#636466')
 
@@ -416,10 +418,10 @@ def discrimination_index(supervised_annotation, directory_output, column='huddle
     return ax
 
 
-def discrimination_index_summary(supervised_annotation, directory_output, column='lookaround', ax=None):
-    
-    color_contrast = '#801946'
 
+
+def discrimination_index_summary(supervised_annotation, directory_output, column, learning, group, color_contrast, ax=None):
+    
     if ax is None:
         fig, ax = plt.subplots(figsize=(7,2))
     
@@ -427,11 +429,11 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     ax.yaxis.grid(True)
     ax.xaxis.grid(False)
         
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column, bin_size=60)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
     data1 = data1[data1.bin == 3] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data1 = data1[column].tolist()
 
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['group'], ['s1'], column, bin_size=60)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
     data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data2 = data2[column].tolist()
     
@@ -445,6 +447,8 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     
     # To calculate the discrimination index (2-3 vs 3-4)
     discrimination = calculate_discrimination(data1, data2)
+    # discrimination = calculate_discrimination(data2, data1)
+
     
     # To calculate the global discrimination index (2-3 vs 3-4 vs 4-5 vs 5-6)
     # discrimination = calculate_global_discrimination(data1, data2, data3, data4)  
@@ -481,7 +485,7 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     ax.tick_params(axis='x', which='both', bottom=True, colors='#636466')
     ax.tick_params(axis='y', colors='#636466')
     
-    plt.title('Distribution of Discrimination Index (' + column.capitalize() + ") among young females", loc = 'left', color='#636466')
+    plt.title('Distribution of Discrimination Index (' + column.capitalize() + ") among young-adult males", loc = 'left', color='#636466')
     
     # Add labels inside the bars
     for bars, label in zip([bar1, bar2, bar3, bar4, bar5], ['DI\nMore than 0.4', 'DI\n0.3 to 0.4', 'DI\n0.2 to 0.3', 'DI\n0.1 to 0.2', 'DI\nLess than 0.1']):
@@ -493,14 +497,113 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     plt.tight_layout()
     return ax
     
+# =============================================================================
+
+def iterate_plot_function(supervised_annotation, directory_output, column='speed'):
     
+    directory = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/DeepOF analysis/all_data/figures/speed/'
+    learnings = ['Direct', 'Mediated']
+    groups = ['Paired', 'Unpaired', 'No-shock']
+    
+    for learning in learnings:
+        if learning == 'Direct':
+            color = '#801946'
+        elif learning == 'Mediated':
+            color = '#194680'
+            
+        for group in groups:
+                 
+            ax =  boxplot(supervised_annotation, directory_output, column, learning, group, color)
+            boxplot_tag = 'boxplot_' + column + '_' + group + '_' + learning
+            boxplot_path = os.path.join(directory, f'{boxplot_tag}.png')
+            plt.savefig(boxplot_path)
+            plt.close()
+            
+            ax = discrimination_index(supervised_annotation, directory_output, column, learning, group, color)
+            di_tag = 'di_' + column + '_' + group + '_' + learning
+            di_path = os.path.join(directory, f'{di_tag}.png')
+            plt.savefig(di_path)
+            plt.close()
+            
+            ax = discrimination_index_summary(supervised_annotation, directory_output, column, learning, group, color)
+            barplot_tag = 'barplot_' + column + '_' + group + '_' + learning
+            barplot_path = os.path.join(directory, f'{barplot_tag}.png')
+            plt.savefig(barplot_path)
+            plt.close()
+
 # =============================================================================
 # Statistics functions
 # ============================================================================= 
-    
 
+def generate_statistics_df(supervised_annotation, directory_output, column):
     
+    learnings = ['Direct', 'Mediated']
+    groups = ['Paired', 'Unpaired', 'No-shock']
+    datas = []
+
+    for learning in learnings:
+        for group in groups:           
+            for x in [3,4]:
+                tag = learning + '_' + group + '_' + str(x)
+                data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
+                data1 = data1[data1.bin == x] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
+                data1['group'] = tag
+                datas.append(data1)
     
+    result_df = pd.concat(datas, axis=0, ignore_index=True)
+    result_df = result_df.reset_index(drop=True)
+    
+    result_df[['learning', 'group', 'timepoint']] = result_df['group'].str.split('_', expand=True)
+    
+    return result_df
+
+# import pingouin as pg
+# df = generate_statistics_df(supervised_annotation, directory_output, column='speed')
+# pg.normality(df, dv='speed', group='group', method="shapiro")
+
+def compare_timepoints(supervised_annotation, directory_output, factor1_col='learning', factor2_col='group', timepoint_col='timepoint', value_col='speed'):
+    
+    df = generate_statistics_df(supervised_annotation, directory_output, value_col)
+    
+    # Get unique levels of Factor1 and Factor2
+    factor1_levels = df[factor1_col].unique()
+    factor2_levels = df[factor2_col].unique()
+
+    # Initialize a dictionary to store results
+    results_dict = {'Factor1': [], 'Factor2': [], 'T-statistic': [], 'P-value': []}
+    decimal_places=4
+
+    # Iterate through unique combinations of Factor1 and Factor2
+    for factor1_level in factor1_levels:
+        for factor2_level in factor2_levels:
+            # Select data for the current combination of Factor1 and Factor2
+            subset = df[(df[factor1_col] == factor1_level) & (df[factor2_col] == factor2_level)]
+
+            # Extract values for before and after timepoints
+            before_values = subset[subset[timepoint_col] == '3'][value_col]
+            after_values = subset[subset[timepoint_col] == '4'][value_col]
+
+            # Initialize t_stat and p_value variables
+            t_stat, p_value = None, None
+
+            # Perform statistical test (e.g., paired t-test or Wilcoxon signed-rank test)
+            # Use t-test for normally distributed data, and Wilcoxon test otherwise
+            if before_values.size >= 2 and after_values.size >= 2:
+                # Assuming normal distribution for simplicity (you may need to check this)
+                # t_stat, p_value = ttest_rel(before_values, after_values)
+                # Wilcoxon signed-rank test for non-normally distributed data
+                _, p_value = wilcoxon(before_values, after_values)
+
+            # Append results to the dictionary, rounding p-value to specified decimal places
+            results_dict['Factor1'].append(str(factor1_level))
+            results_dict['Factor2'].append(str(factor2_level))
+            results_dict['T-statistic'].append(t_stat)
+            results_dict['P-value'].append(round(p_value, decimal_places))
+
+    # Create a DataFrame from the results dictionary
+    results_df = pd.DataFrame(results_dict)
+
+    return results_df
     
     
     
