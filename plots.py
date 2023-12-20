@@ -46,7 +46,7 @@ def data_to_plot_mask(directory_output, conditions_cols, specific_conditions):
     conditions: list (names of the columns from the conditions.csv)
     specific_conditions: list (names of the specific value of the conditions)
     '''
-    
+    directory_output = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/Age and sex analysis/'
     conditions = pd.read_csv(directory_output + "conditions.csv")
     
     conditions_dict = dict(zip(conditions_cols, specific_conditions))
@@ -179,7 +179,7 @@ def count_function(my_list):
 # Plot functions
 # =============================================================================
 
-def timeseries(supervised_annotation, directory_output, column='speed', color_contrast='#194680', ax=None):
+def timeseries(supervised_annotation, directory_output, column='immobility', color_contrast='#194680', ax=None):
     '''
     Parameters
     ----------
@@ -188,10 +188,9 @@ def timeseries(supervised_annotation, directory_output, column='speed', color_co
     column: str (huddle, lookaround, etc.)
     '''
     
-    # blue color storytelling = #194680
-    # red color storytelling = #801946
-    # other blues = royalblue
-    # grey color storytelling = #636466
+    blue = '#194680'
+    red = '#801946'
+    grey = '#636466'
     
     if ax is None:
         fig, ax = plt.subplots(figsize=(7,4))
@@ -202,15 +201,15 @@ def timeseries(supervised_annotation, directory_output, column='speed', color_co
     
     label_offset = 0.2  # Offset for label positioning
     
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], ['Direct', 'No-shock'], column)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning'], ['Mediated'], column)
     data1['bin']= data1['bin'] / 6
-    sns.lineplot(x=data1['bin'], y=data1[column], label='', legend=None, color='grey')
-    ax.text(data1['bin'].iloc[-1] + label_offset, data1[data1.bin == data1.bin.iloc[-1]][column].mean(), 'Direct', fontsize=12, color='grey', weight='bold')
+    sns.lineplot(x=data1['bin'], y=data1[column], label='', legend=None, color=red)
+    ax.text(data1['bin'].iloc[-1] + label_offset, data1[data1.bin == data1.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color=red, weight='bold')
 
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], ['Mediated', 'No-shock'], column)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning'], ['Mediated'], column)
     data2['bin']= data2['bin'] / 6
-    sns.lineplot(x=data2['bin'], y=data2[column], label='', legend=None, color=color_contrast)    
-    ax.text(data2['bin'].iloc[-1] + label_offset, data2[data2.bin == data2.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color=color_contrast, weight='bold')
+    sns.lineplot(x=data2['bin'], y=data2[column], label='', legend=None, color=blue)    
+    ax.text(data2['bin'].iloc[-1] + label_offset, data2[data2.bin == data2.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color=blue, weight='bold')
     
     upper_limit = 100
     plt.ylim(0,upper_limit)
@@ -416,8 +415,6 @@ def discrimination_index(supervised_annotation, directory_output, column, learni
         
     plt.tight_layout()
     return ax
-
-
 
 
 def discrimination_index_summary(supervised_annotation, directory_output, column, learning, group, color_contrast, ax=None):
