@@ -33,8 +33,8 @@ def creating_deepof_project(directory_output, directory_dlc, directory_videos, m
                         table_path=os.path.join(directory_dlc),
                         project_name="deepof_tutorial_project",
                         arena=arena_type,
-                        # animal_ids=["Animal_1", 'Animal_2'],
-                        video_format=".avi",
+                        animal_ids=["focal", 'cs1', 'cs2'],
+                        video_format=".mp4",
                         # exclude_bodyparts=["Tail_1", "Tail_2", "Tail_tip"],
                         video_scale=scale,  # in mm
                         enable_iterative_imputation=10,
