@@ -15,9 +15,9 @@ import deepof.data
 import numpy as np
 
 # Modify the following directories as necessary
-directory_output = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-08 SOC - Females/DeepOF/"
-directory_dlc = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-08 SOC - Females/DeepOF/Data/dlc/"
-directory_videos = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-08 SOC - Females/DeepOF/Data/corrected/"
+directory_output = "//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Julia/20 Social Sensory preconditionign CS PILOT/multianimal spc/"
+directory_dlc = "//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Julia/20 Social Sensory preconditionign CS PILOT/multianimal spc/csv/"
+directory_videos = "//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Julia/20 Social Sensory preconditionign CS PILOT/multianimal spc/videos/"
 
 # NOTE: Run the corrected videos with the DLC files of the corrected videos
 
@@ -32,11 +32,11 @@ def creating_deepof_project(directory_output, directory_dlc, directory_videos):
                         table_path=os.path.join(directory_dlc),
                         project_name="deepof_tutorial_project",
                         arena="polygonal-manual",
-                        # animal_ids=["Animal_1", 'Animal_2'],
-                        video_format=".avi",
+                        animal_ids=["focal", 'cs1', 'cs2'],
+                        table_format="csv",
+                        video_format=".mp4",
                         # exclude_bodyparts=["Tail_1", "Tail_2", "Tail_tip"],
                         video_scale=200,  # in mm
-                        enable_iterative_imputation=10,
                         smooth_alpha=1,
                         exp_conditions=None,
                         )
