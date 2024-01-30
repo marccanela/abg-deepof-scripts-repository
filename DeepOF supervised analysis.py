@@ -16,13 +16,13 @@ import pickle
 import statistics
 import os
 
-directory_output = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-09 - Young males/DeepOF/"
+directory_output = "//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/DeepOF analysis/"
 
 # =============================================================================
 # Loading a previously generated project
 # =============================================================================
 
-my_deepof_project = deepof.data.load_project(directory_output + "deepof_tutorial_project")
+my_deepof_project = deepof.data.load_project(directory_output + "deepof_tutorial_project_batch_3")
 
 # =============================================================================
 # Running the supervised analysis
@@ -35,6 +35,31 @@ with open(directory_output + 'supervised_annotation.pkl', 'wb') as file:
 # Alternatively, open an existing supervised analysis
 with open(directory_output + 'supervised_annotation.pkl', 'rb') as file:
     supervised_annotation = pickle.load(file)
+    
+
+len(supervised_annotation)    
+# Delete the first 24 entries
+keys_to_delete = list(supervised_annotation.keys())[:24]
+for key in keys_to_delete:
+    del supervised_annotation[key]
+# Delete the last column of each dataframe in the dictionary
+for key, df in supervised_annotation.items():
+    supervised_annotation[key] = df.iloc[:, :-1]
+
+old = supervised_annotation
+    
+old.update(supervised_annotation)
+    
+supervised_annotation = old    
+    
+    
+
+
+
+
+
+
+
     
 # You may also add the immobility information (using the immobility from uncorrected videos)
 def update_supervised_annotation_with_immobility(supervised_annotation):
@@ -53,19 +78,6 @@ def update_supervised_annotation_with_immobility(supervised_annotation):
                     df['immobility'] = binary_data
                     supervised_annotation[tag] = df
                                 
-                
-
-
-
-
-
-
-
-
-
-
-
-
 
 def cohens_d(supervised_annotation, conditions_column='protocol', hue_1='s1', hue_2='s2', values_column='climbing', bin_size=60, duration=360, filter_out=''):
 

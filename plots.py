@@ -4,10 +4,12 @@ Version number 1: 02/11/2023
 DeepOF SUPERVISED ANALYSIS TIMESERIES PLOTS
 """
 
+import deepof.data
 import copy
 import numpy as np
 import pandas as pd
 import os
+import pickle
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -15,6 +17,14 @@ from matplotlib.collections import PatchCollection
 import matplotlib.ticker as mtick
 
 from scipy.stats import ttest_rel, wilcoxon
+
+blue = '#194680'
+red = '#801946'
+grey = '#636466'
+
+# directory_output = '//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/DeepOF analysis/'
+# with open(directory_output + 'supervised_annotation.pkl', 'rb') as file:
+#     supervised_annotation = pickle.load(file)
 
 # =============================================================================
 # Defining functions for future plotting
@@ -46,7 +56,6 @@ def data_to_plot_mask(directory_output, conditions_cols, specific_conditions):
     conditions: list (names of the columns from the conditions.csv)
     specific_conditions: list (names of the specific value of the conditions)
     '''
-    directory_output = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/Age and sex analysis/'
     conditions = pd.read_csv(directory_output + "conditions.csv")
     
     conditions_dict = dict(zip(conditions_cols, specific_conditions))
@@ -63,6 +72,7 @@ def data_to_plot_mask(directory_output, conditions_cols, specific_conditions):
     experiment_ids = conditions[global_mask]['experiment_id'].to_list()  
     
     return experiment_ids
+
 
 
 def data_set_to_plot(supervised_annotation, directory_output, conditions_cols, specific_conditions, behavior, length=360, bin_size=10, filter_out=''):
@@ -179,7 +189,7 @@ def count_function(my_list):
 # Plot functions
 # =============================================================================
 
-def timeseries(supervised_annotation, directory_output, column='immobility', color_contrast='#194680', ax=None):
+def timeseries(supervised_annotation, directory_output, column='huddle', color_contrast=blue, ax=None):
     '''
     Parameters
     ----------
@@ -187,10 +197,6 @@ def timeseries(supervised_annotation, directory_output, column='immobility', col
     directory_output: str
     column: str (huddle, lookaround, etc.)
     '''
-    
-    blue = '#194680'
-    red = '#801946'
-    grey = '#636466'
     
     if ax is None:
         fig, ax = plt.subplots(figsize=(7,4))
@@ -201,15 +207,15 @@ def timeseries(supervised_annotation, directory_output, column='immobility', col
     
     label_offset = 0.2  # Offset for label positioning
     
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning'], ['Mediated'], column)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning', 'group', 'batch'], ['mediated', 'no-shock', 'c'], column)
     data1['bin']= data1['bin'] / 6
     sns.lineplot(x=data1['bin'], y=data1[column], label='', legend=None, color=red)
-    ax.text(data1['bin'].iloc[-1] + label_offset, data1[data1.bin == data1.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color=red, weight='bold')
+    ax.text(data1['bin'].iloc[-1] + label_offset, data1[data1.bin == data1.bin.iloc[-1]][column].mean(), 'c noshock', fontsize=12, color=red, weight='bold')
 
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning'], ['Mediated'], column)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning', 'group', 'batch'], ['mediated', 'no-shock', 'b'], column)
     data2['bin']= data2['bin'] / 6
     sns.lineplot(x=data2['bin'], y=data2[column], label='', legend=None, color=blue)    
-    ax.text(data2['bin'].iloc[-1] + label_offset, data2[data2.bin == data2.bin.iloc[-1]][column].mean(), 'Mediated', fontsize=12, color=blue, weight='bold')
+    ax.text(data2['bin'].iloc[-1] + label_offset, data2[data2.bin == data2.bin.iloc[-1]][column].mean(), 'b noshock', fontsize=12, color=blue, weight='bold')
     
     upper_limit = 100
     plt.ylim(0,upper_limit)
@@ -218,15 +224,15 @@ def timeseries(supervised_annotation, directory_output, column='immobility', col
     ax.set_ylabel('Percentage of time doing ' + column, loc='top')
     # ax.set_ylabel('Speed (mm/frame)', loc='top')
     
-    plt.title(column.capitalize() + " response in young-adult males", loc = 'left', color='#636466')
+    plt.title(column.capitalize() + " response in young-adult males", loc = 'left', color=grey)
     
     # Grey color
-    ax.xaxis.label.set_color('#636466')
-    ax.yaxis.label.set_color('#636466')
-    ax.tick_params(axis='x', colors='#636466')
-    ax.tick_params(axis='y', colors='#636466')
+    ax.xaxis.label.set_color(grey)
+    ax.yaxis.label.set_color(grey)
+    ax.tick_params(axis='x', colors=grey)
+    ax.tick_params(axis='y', colors=grey)
     # for spine in plt.gca().spines.values():
-    #     spine.set_edgecolor('#636466')
+    #     spine.set_edgecolor(grey)
     
     # Shaded area
     probetest_list = []
@@ -234,12 +240,12 @@ def timeseries(supervised_annotation, directory_output, column='immobility', col
     probetest_list.append(probetest_coords)
     probetest_coords_2 = plt.Rectangle((5, 0), 1, upper_limit)
     probetest_list.append(probetest_coords_2)
-    probetest_coll = PatchCollection(probetest_list, alpha=0.1, color='#636466')
+    probetest_coll = PatchCollection(probetest_list, alpha=0.1, color=grey)
     ax.add_collection(probetest_coll)
-    probetest_coll_border = PatchCollection(probetest_list, facecolor='none', edgecolor='#636466', alpha=0.5)
+    probetest_coll_border = PatchCollection(probetest_list, facecolor='none', edgecolor=grey, alpha=0.5)
     ax.add_collection(probetest_coll_border)
-    ax.annotate('Cue', (3.5, upper_limit*0.9), ha='center', fontsize=12, color='#636466', weight='bold', alpha=0.5)
-    ax.annotate('Cue', (5.5, upper_limit*0.9), ha='center', fontsize=12, color='#636466', weight='bold', alpha=0.5)
+    ax.annotate('Cue', (3.5, upper_limit*0.9), ha='center', fontsize=12, color=grey, weight='bold', alpha=0.5)
+    ax.annotate('Cue', (5.5, upper_limit*0.9), ha='center', fontsize=12, color=grey, weight='bold', alpha=0.5)
     
     plt.tight_layout()
     return ax
@@ -255,24 +261,24 @@ def boxplot(supervised_annotation, directory_output, column, learning, group, co
     ax.xaxis.grid(False)
     
     data1_position = 0
-    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
+    data1 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group','batch'], [learning,group,'b'], column, bin_size=60)
     data1 = data1[data1.bin == 3] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data1 = data1[column].tolist()
     data1_mean = np.mean(data1)
     data1_error = np.std(data1, ddof=1)
 
     data2_position = 1
-    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group'], [learning,group], column, bin_size=60)
+    data2 = data_set_to_plot(supervised_annotation, directory_output, ['learning','group','batch'], [learning,group,'b'], column, bin_size=60)
     data2 = data2[data2.bin == 4] # The bin starts with 1 (i.e., 1, 2, 3, 4, etc.)
     data2 = data2[column].tolist()
     data2_mean = np.mean(data2)
     data2_error = np.std(data2, ddof=1)
 
-    ax.hlines(data1_mean, xmin=data1_position-0.25, xmax=data1_position+0.25, color='#636466', linewidth=1.5)
-    ax.hlines(data2_mean, xmin=data2_position-0.25, xmax=data2_position+0.25, color='#636466', linewidth=1.5)
+    ax.hlines(data1_mean, xmin=data1_position-0.25, xmax=data1_position+0.25, color=grey, linewidth=1.5)
+    ax.hlines(data2_mean, xmin=data2_position-0.25, xmax=data2_position+0.25, color=grey, linewidth=1.5)
     
-    ax.errorbar(data1_position, data1_mean, yerr=data1_error, lolims=False, capsize = 3, ls='None', color='#636466', zorder=-1)
-    ax.errorbar(data2_position, data2_mean, yerr=data2_error, lolims=False, capsize = 3, ls='None', color='#636466', zorder=-1)
+    ax.errorbar(data1_position, data1_mean, yerr=data1_error, lolims=False, capsize = 3, ls='None', color=grey, zorder=-1)
+    ax.errorbar(data2_position, data2_mean, yerr=data2_error, lolims=False, capsize = 3, ls='None', color=grey, zorder=-1)
 
     ax.set_xticks([data1_position, data2_position])
     ax.set_xticklabels(['Before the cue', 'During the cue'])
@@ -299,7 +305,7 @@ def boxplot(supervised_annotation, directory_output, column, learning, group, co
     
     if len(data1) == len(data2):
         for x in range(len(data1)):
-            ax.plot([dispersion_values_data1[x], dispersion_values_data2[x]], [data1[x], data2[x]], color = '#636466', linestyle='--', linewidth=0.5)
+            ax.plot([dispersion_values_data1[x], dispersion_values_data2[x]], [data1[x], data2[x]], color = grey, linestyle='--', linewidth=0.5)
         
     
     plt.ylim(0,100)
@@ -308,14 +314,14 @@ def boxplot(supervised_annotation, directory_output, column, learning, group, co
     # ax.set_ylabel('Speed (mm/frame)' + column, loc='top')
     ax.yaxis.set_major_formatter(mtick.PercentFormatter()) #Add % symbol to the Y axis
     
-    plt.title(column.capitalize() + " in young-adult males", loc = 'left', color='#636466')
+    plt.title(column.capitalize() + " in young-adult males", loc = 'left', color=grey)
 
     
     # Grey color
-    ax.xaxis.label.set_color('#636466')
-    ax.yaxis.label.set_color('#636466')
-    ax.tick_params(axis='x', colors='#636466')
-    ax.tick_params(axis='y', colors='#636466')
+    ax.xaxis.label.set_color(grey)
+    ax.yaxis.label.set_color(grey)
+    ax.tick_params(axis='x', colors=grey)
+    ax.tick_params(axis='y', colors=grey)
     
     # pvalue = pg.ttest(off_list, on_list, paired=True)['p-val'][0]
     
@@ -382,9 +388,9 @@ def discrimination_index(supervised_annotation, directory_output, column, learni
     data_mean = np.mean(discrimination)
     data_error = np.std(discrimination, ddof=1)
 
-    ax.hlines(data_mean, xmin=data_position-0.1, xmax=data_position+0.1, color='#636466', linewidth=1.5)
+    ax.hlines(data_mean, xmin=data_position-0.1, xmax=data_position+0.1, color=grey, linewidth=1.5)
     
-    ax.errorbar(data_position, data_mean, yerr=data_error, lolims=False, capsize = 3, ls='None', color='#636466', zorder=-1)
+    ax.errorbar(data_position, data_mean, yerr=data_error, lolims=False, capsize = 3, ls='None', color=grey, zorder=-1)
 
     ax.set_xticks([data_position])
     ax.set_xticklabels([])
@@ -401,17 +407,17 @@ def discrimination_index(supervised_annotation, directory_output, column, learni
             label='Data1')      
                      
     plt.ylim(-1,1)
-    ax.axhline(y=0, color='#636466', linestyle='--')
+    ax.axhline(y=0, color=grey, linestyle='--')
     ax.set_xlabel('')
     ax.set_ylabel('Discrimination Index ' + column.capitalize(), loc='top')
     
-    # plt.title(column.capitalize() + " DI in TRAP2", loc = 'left', color='#636466')
+    # plt.title(column.capitalize() + " DI in TRAP2", loc = 'left', color=grey)
 
     # Grey color
-    ax.xaxis.label.set_color('#636466')
-    ax.yaxis.label.set_color('#636466')
-    ax.tick_params(axis='x', colors='#636466')
-    ax.tick_params(axis='y', colors='#636466')
+    ax.xaxis.label.set_color(grey)
+    ax.yaxis.label.set_color(grey)
+    ax.tick_params(axis='x', colors=grey)
+    ax.tick_params(axis='y', colors=grey)
         
     plt.tight_layout()
     return ax
@@ -458,8 +464,8 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     bar1 = ax.barh(categories, np.array(values)[0], bar_height, left=0, align='center', color=color_contrast, label='>0.4')
     bar2 = ax.barh(categories, np.array(values)[1], bar_height, left=np.array(values)[0], align='center', color=color_contrast, label='0.3-0.4')    
     bar3 = ax.barh(categories, np.array(values)[2], bar_height, left=np.array(values)[0] + np.array(values)[1], align='center', color=color_contrast, label='0.2-0.3')    
-    bar4 = ax.barh(categories, np.array(values)[3], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2], align='center', color='#636466', label='0.1-0.2')    
-    bar5 = ax.barh(categories, np.array(values)[4], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2] + np.array(values)[3], align='center', color='#636466', label='<0.1')            
+    bar4 = ax.barh(categories, np.array(values)[3], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2], align='center', color=grey, label='0.1-0.2')    
+    bar5 = ax.barh(categories, np.array(values)[4], bar_height, left=np.array(values)[0] + np.array(values)[1] + np.array(values)[2] + np.array(values)[3], align='center', color=grey, label='<0.1')            
     
     ax.set_yticks([])  # Hide y-axis ticks
     
@@ -477,12 +483,12 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     ax.spines['left'].set_visible(False)
     
     # Grey color
-    ax.xaxis.label.set_color('#636466')
-    ax.yaxis.label.set_color('#636466')
-    ax.tick_params(axis='x', which='both', bottom=True, colors='#636466')
-    ax.tick_params(axis='y', colors='#636466')
+    ax.xaxis.label.set_color(grey)
+    ax.yaxis.label.set_color(grey)
+    ax.tick_params(axis='x', which='both', bottom=True, colors=grey)
+    ax.tick_params(axis='y', colors=grey)
     
-    plt.title('Distribution of Discrimination Index (' + column.capitalize() + ") among young-adult males", loc = 'left', color='#636466')
+    plt.title('Distribution of Discrimination Index (' + column.capitalize() + ") among young-adult males", loc = 'left', color=grey)
     
     # Add labels inside the bars
     for bars, label in zip([bar1, bar2, bar3, bar4, bar5], ['DI\nMore than 0.4', 'DI\n0.3 to 0.4', 'DI\n0.2 to 0.3', 'DI\n0.1 to 0.2', 'DI\nLess than 0.1']):
@@ -496,16 +502,16 @@ def discrimination_index_summary(supervised_annotation, directory_output, column
     
 # =============================================================================
 
-def iterate_plot_function(supervised_annotation, directory_output, column='speed'):
+def iterate_plot_function(supervised_annotation, directory_output, column='huddle'):
     
-    directory = '//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/DeepOF analysis/all_data/figures/speed/'
-    learnings = ['Direct', 'Mediated']
-    groups = ['Paired', 'Unpaired', 'No-shock']
+    directory = '//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/DeepOF analysis/plots_batch_a_b_c'
+    learnings = ['direct', 'mediated']
+    groups = ['paired', 'unpaired', 'no-shock']
     
     for learning in learnings:
-        if learning == 'Direct':
+        if learning == 'direct':
             color = '#801946'
-        elif learning == 'Mediated':
+        elif learning == 'mediated':
             color = '#194680'
             
         for group in groups:
