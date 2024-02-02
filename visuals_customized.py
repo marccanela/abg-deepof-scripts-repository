@@ -9,6 +9,7 @@ from itertools import product, combinations
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.patches import Ellipse
+import matplotlib.patches as mpatches
 from scipy.cluster.hierarchy import linkage, dendrogram
 from scipy.signal import savgol_filter
 from sklearn.metrics import confusion_matrix
@@ -31,6 +32,8 @@ import time
 import warnings
 
 import deepof.post_hoc
+import post_hoc_customized
+
 
 # DEFINE CUSTOM ANNOTATED TYPES #
 project = NewType("deepof_project", Any)
@@ -586,7 +589,7 @@ def plot_enrichment(
             }
 
     # Get cluster enrichment across conditions for the desired settings
-    enrichment = deepof.post_hoc.enrichment_across_conditions(
+    enrichment = post_hoc_customized.enrichment_across_conditions(
         embedding=embeddings,
         soft_counts=soft_counts,
         breaks=breaks,
@@ -1260,8 +1263,7 @@ def plot_embeddings(
 
     """
     # Filter embeddings, soft_counts, breaks and supervised_annotations based on the provided keys and experimental condition
-    (
-        emb_to_plot,
+    (emb_to_plot,
         counts_to_plot,
         breaks_to_plot,
         sup_annots_to_plot,
@@ -1278,7 +1280,10 @@ def plot_embeddings(
         precomputed_bins,
     )
     show = True
-
+    
+    dataframe_for_titles = [emb_to_plot, counts_to_plot, sup_annots_to_plot]
+    dataframe_for_titles = [elem for elem in dataframe_for_titles if elem is not None][0]
+    
     # Plot unravelled temporal embeddings
     if not aggregate_experiments and emb_to_plot is not None:
 
@@ -1317,7 +1322,7 @@ def plot_embeddings(
         reducers = deepof.post_hoc.compute_UMAP(concat_embeddings, cluster_assignments)
         umap_reducer = reducers[1]
         reduced_embeddings = umap_reducer.transform(reducers[0].transform(concat_embeddings))
-        explained_variance = umap_reducer.explained_variance_
+        
 
         # Generate unifier dataset using the reduced embeddings, experimental conditions
         # and the corresponding break lengths and cluster assignments
@@ -1343,21 +1348,21 @@ def plot_embeddings(
     else:
 
         if not aggregate_experiments:
-            aggregate_experiments = "median"
+            aggregate_experiments = "mean" # If 'median', empty PCA
 
         # Aggregate experiments by time on cluster
         if aggregate_experiments == "time on cluster":
-            aggregated_embeddings = deepof.post_hoc.get_time_on_cluster(
+            aggregated_embeddings, explained_variance, rotated_loading_scores = post_hoc_customized.get_time_on_cluster(
                 counts_to_plot, breaks_to_plot, reduce_dim=True
             )
 
         else:
             if emb_to_plot is not None:
-                aggregated_embeddings = deepof.post_hoc.get_aggregated_embedding(
+                aggregated_embeddings, explained_variance, rotated_loading_scores = post_hoc_customized.get_aggregated_embedding(
                     emb_to_plot, agg=aggregate_experiments, reduce_dim=True
                 )
             else:
-                aggregated_embeddings = deepof.post_hoc.get_aggregated_embedding(
+                aggregated_embeddings, explained_variance, rotated_loading_scores = post_hoc_customized.get_aggregated_embedding(
                     sup_annots_to_plot, agg=aggregate_experiments, reduce_dim=True
                 )
 
@@ -1377,8 +1382,7 @@ def plot_embeddings(
                 embedding_dataset,
                 normative_model,
                 ax,
-                add_stats,
-                verbose,
+                add_stats
             )
 
     # Plot selected embeddings using the specified settings
@@ -1417,7 +1421,7 @@ def plot_embeddings(
             zorder=0,
             ax=ax,
             palette=my_color_dict if my_color_dict is not None else None,
-            # shade=True, # Fill with color
+            shade=True, # Fill with color
             alpha=0.5
         )
     
@@ -1449,14 +1453,17 @@ def plot_embeddings(
     ax.xaxis.grid(False)
     ax.xaxis.label.set_color(grey_stark)
     ax.yaxis.label.set_color(grey_stark)
+    ax.set_xlabel('PC1 (' + str(explained_variance[0]*100)[:4] + '%)')
+    ax.set_ylabel('PC2 (' + str(explained_variance[1]*100)[:4] + '%)')
+    
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.tick_params(axis='x', colors=grey_stark)
     ax.tick_params(axis='y', colors=grey_stark)
     if ax.legend_ is not None:
         ax.legend().remove()          
-            
-    return ax, embedding_dataset, explained_variance
+    
+    return ax, embedding_dataset, rotated_loading_scores, dataframe_for_titles
 
 
 def _scatter_embeddings(
@@ -2858,3 +2865,162 @@ def annotate_video(
     cv2.destroyAllWindows()
 
     return True
+
+def boxplot(embedding_dataset, color_dict, pc, stats_dict, ax=None):
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(3.5,4))
+    
+    sns.set_theme(style="whitegrid")
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    jitter = 0.15 # Dots dispersion
+    
+    conditions = embedding_dataset['experimental condition'].unique().tolist()
+    positions = []
+    for condition in conditions:
+        position = conditions.index(condition)
+        positions.append(position)
+        values_to_plot = embedding_dataset[embedding_dataset['experimental condition'] == condition][pc]
+        mean = np.mean(values_to_plot)
+        error = np.std(values_to_plot, ddof=1)
+
+        ax.hlines(mean, xmin=position-0.25, xmax=position+0.25, color=grey_stark, linewidth=1.5)   
+        ax.errorbar(position, mean, yerr=error, lolims=False, capsize = 3, ls='None', color=grey_stark, zorder=-1)
+    
+        # dispersion_values = np.random.normal(loc=position, scale=jitter, size=len(values_to_plot)).tolist()
+        dispersion_values = np.random.uniform(low=position - jitter, high=position + jitter, size=len(values_to_plot)).tolist()
+        ax.plot(dispersion_values, values_to_plot,
+                'o',                            
+                markerfacecolor=color_dict[condition],    
+                markeredgecolor='black',
+                markeredgewidth=1,
+                markersize=7) 
+
+    ax.set_xticks(positions)
+    ax.set_xticklabels(conditions)
+    
+    # plt.ylim(0,100)
+    ax.set_xlabel('')
+    ax.set_ylabel(pc + ' eigenvalues', loc='top')
+    
+    # plt.title(column.capitalize() + " in young-adult males", loc = 'left', color=grey)
+    
+    # Grey color
+    ax.xaxis.label.set_color(grey_stark)
+    ax.yaxis.label.set_color(grey_stark)
+    ax.tick_params(axis='x', colors=grey_stark)
+    ax.tick_params(axis='y', colors=grey_stark)
+    
+    for significance, pairs in stats_dict.items():
+        values_x = embedding_dataset[embedding_dataset['experimental condition'] == pairs[0]][pc]
+        values_y = embedding_dataset[embedding_dataset['experimental condition'] == pairs[1]][pc]
+        y, h, col = max(max(values_x), max(values_y)) + 0.5, 0.15, grey_stark
+        position_1 = conditions.index(pairs[0])
+        position_2 = conditions.index(pairs[1])
+        ax.plot([position_1, position_1, position_2, position_2], [y, y+h, y+h, y], lw=1.5, c=col)
+        ax.text((position_1+position_2)*.5, y+h*0.5, significance, ha='center', va='bottom', color=col, size=18)
+    
+    plt.tight_layout()
+    return ax
+
+def lollipop(dataframe_for_titles, rotated_loading_scores, pca, ax=None):
+        
+    # Display the variable names and their corresponding loading scores
+    features = next(iter(dataframe_for_titles.values())).columns.tolist()
+    # pc_loading_scores = rotated_loading_scores[0, :] # PC1
+    pc_loading_scores = rotated_loading_scores[1, :] # PC2
+    loading_scores_df = pd.DataFrame({'Variable': features, 'PC_Loading': pc_loading_scores})
+    loading_scores_df = loading_scores_df.reindex(loading_scores_df['PC_Loading'].abs().sort_values(ascending=False).index)
+    loading_scores_df.drop(loading_scores_df[loading_scores_df['PC_Loading'] == 0].index, inplace=True)
+    loading_scores_df['sign'] = loading_scores_df['PC_Loading'].apply(lambda x: 'Positive' if x > 0 else 'Negative' if x < 0 else 'Zero')
+    loading_scores_df['PC_Loading'] = loading_scores_df['PC_Loading'].abs()
+    
+    # Reorder it based on the values:
+    ordered_df = loading_scores_df.sort_values(by='PC_Loading')
+    my_range=range(1,len(loading_scores_df.index)+1)
+    my_range_array = np.array(my_range)
+        
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6,7))
+    
+    sns.set_theme(style="whitegrid")
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(False)
+    ax.set_xlabel(pca + ' rotated loading scores', loc='left')
+    ax.set_ylabel('')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    
+    # Grey color
+    ax.xaxis.label.set_color(grey_stark)
+    ax.yaxis.label.set_color(grey_stark)
+    ax.tick_params(axis='x', colors=grey_stark)
+    ax.tick_params(axis='y', colors=grey_stark)
+    
+    ax.set_xlim(0, 0.7)
+    ax.set_xticks([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+    
+    signs = {
+        'Positive': blue,
+        'Negative': red
+        }
+    for sign, color in signs.items():
+        mask = (ordered_df['sign'] == sign)
+        ax.hlines(y=my_range_array[mask], xmin=0, xmax=ordered_df['PC_Loading'][mask], color=color, label=sign)
+        ax.plot(ordered_df['PC_Loading'][mask], my_range_array[mask], "o", color=color)
+
+    ax.set_yticks(my_range)
+    
+    tags = ordered_df['Variable'].to_list()
+    new_tags = []
+    for tag in tags:
+        split_values = tag.split('_')
+        split_values[0] = split_values[0].capitalize()
+        new_string = ' '.join(split_values)
+        new_tags.append(new_string)
+        
+    ax.set_yticklabels(new_tags)
+        
+    ax.legend(loc='lower right', frameon=False, labelcolor=grey_stark)
+    
+    plt.tight_layout()
+    return ax
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
